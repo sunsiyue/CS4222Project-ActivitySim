@@ -1,0 +1,4 @@
+walking£º4:27pm- 4:45pm, 5:03-5:08pm 6:15pm - 
+indoor_idle: 4:45 - 5:03pm
+Bus: 5:08pm- 5:41pm 5:58pm -6:07pm
+outdoor_idle: 5:41pm- 5:58pm 6:07pm- 6:15pm

@@ -106,6 +106,55 @@ public class ActivityDetection {
                                            float y , 
                                            float z , 
                                            int accuracy ) {
+        
+        
+        //detect Walking state
+        // TODO: buffer to be added
+//        if ((x*x + y*y + z*z) >100) {
+//            ActivitySimulator.outputDetectedActivity(UserActivities.WALKING);
+//        }
+//        else {
+//            //ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+//        }
+        
+        accQ.add(x*x + y*y + z*z);
+        if(accQ.size()>1000) {
+            accQ.remove();
+        }
+        
+        double curSum = 0;
+        for(double i:accQ) {
+            curSum += i;
+        }
+        
+        double curAcc = curSum/accQ.size();
+
+                if (curAcc <1) {
+                    if (curLight > 300) {
+                        ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_OUTDOOR);
+                    } else {
+                        ActivitySimulator.outputDetectedActivity(UserActivities.IDLE_INDOOR);
+                    }
+                    
+                    
+                    isIDLE = true;
+                    
+
+                    
+                }
+                else {
+                    if (onVehicle) {
+                        ActivitySimulator.outputDetectedActivity(UserActivities.BUS);
+                    }
+                    else {
+                        ActivitySimulator.outputDetectedActivity(UserActivities.WALKING);
+                    }
+                    
+                }
+        
+        
+        
+        
     }
 
     /** 
@@ -182,6 +231,12 @@ public class ActivityDetection {
     public void onLightSensorChanged( long timestamp , 
                                       float light , 
                                       int accuracy ) {
+        
+        
+
+        curLight = light;
+        
+        
     }
 
     /** 
@@ -208,6 +263,10 @@ public class ActivityDetection {
        @param   bearing      Bearing (deg) (may be -1 if unavailable)
        @param   speed        Speed (m/sec) (may be -1 if unavailable)
      */
+    private long prevTimestamp = 0;
+    private double prevLatitude = 0;
+    private double prevLongitude = 0;
+    
     public void onLocationSensorChanged( long timestamp , 
                                          String provider , 
                                          double latitude , 
@@ -216,7 +275,83 @@ public class ActivityDetection {
                                          double altitude , 
                                          float bearing , 
                                          float speed ) {
+        
+        double networkSpeed = distanceByLatLon(latitude, longitude, prevLatitude, prevLongitude)/((timestamp-prevTimestamp)/1000);
+        prevTimestamp = timestamp;
+        prevLatitude = latitude;
+        prevLongitude = longitude;
+
+        
+        
+        speedLog.add( speed );
+        if( speedLog.size() > 15 ) {
+            speedLog.remove( 0 );
+        }
+        
+        float maxSpeed = -1;
+        for(Float s : speedLog){
+            maxSpeed = Math.max(maxSpeed, s);
+        }
+        
+        //if(speed > 5 || (networkSpeed > 5)) {
+        if(maxSpeed > 5 || (networkSpeed > 6 && networkSpeed < 20)){
+            onVehicle = true;
+//            if(!isIdle
+//               && prevIdleState != UserActivities.BUS
+//               && prevIdleState != UserActivities.TRAIN
+//               && prevIdleState != UserActivities.CAR){
+//                prevIdleState = UserActivities.BUS;
+//                if(walkingBuffer){
+//                    stateBuffer.add(UserActivities.BUS);
+//                }else{
+//                    ActivitySimulator.outputDetectedActivity( UserActivities.BUS );
+//                }
+//            }
+        }else{
+            onVehicle = false;
+        }
+        
+        
     }
+    
+    
+    
+    private double distanceByLatLon(double lat1, double lon1, double lat2, double lon2) {
+        
+        // Convert degrees to radians
+        lat1 = lat1 * Math.PI / 180.0;
+        lon1 = lon1 * Math.PI / 180.0;
+        
+        lat2 = lat2 * Math.PI / 180.0;
+        lon2 = lon2 * Math.PI / 180.0;
+        
+        // radius of earth in metres
+        double r = 6371000;
+        
+        // P
+        double rho1 = r * Math.cos(lat1);
+        double z1 = r * Math.sin(lat1);
+        double x1 = rho1 * Math.cos(lon1);
+        double y1 = rho1 * Math.sin(lon1);
+        
+        // Q
+        double rho2 = r * Math.cos(lat2);
+        double z2 = r * Math.sin(lat2);
+        double x2 = rho2 * Math.cos(lon2);
+        double y2 = rho2 * Math.sin(lon2);
+        
+        // Dot product
+        double dot = (x1 * x2 + y1 * y2 + z1 * z2);
+        double cos_theta = dot / (r * r);
+        
+        double theta = Math.acos(cos_theta);
+        
+        // Distance in Metres
+        return r * theta;
+    }
+    
+    
+    
 
     /** Helper method to convert UNIX millis time into a human-readable string. */
     private static String convertUnixTimeToReadableString( long millisec ) {
@@ -227,6 +362,15 @@ public class ActivityDetection {
     private static final SimpleDateFormat sdf = new SimpleDateFormat( "yyyy-MM-dd-h-mm-ssa" );
 
     // Dummy variables used in the dummy timer code example
+    
+    private LinkedList< Float > accQ = new LinkedList<Float>();
+    private LinkedList< Float > lightQ = new LinkedList<Float>();
+    private boolean isIDLE = false;
+    private double curLight = 0;
+    private boolean onVehicle = false;
+    private LinkedList< Float > speedLog = new LinkedList< Float >();
+    
+    
     private boolean isFirstAcclReading = true;
     private boolean isUserOutside = false;
     private int numberTimers = 1;
